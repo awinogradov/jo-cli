@@ -10,7 +10,9 @@
 
 ## Usage
 
-> npm i -D jo-cli
+``` bash
+$ npm i -D jo-cli
+```
 
 ### Command config
 
@@ -69,7 +71,9 @@ module.exports.template = (_, fileName) => `.${fileName} {}`;
 
 ### Run it!
 
-> jo component tabs.{js,css} menu -d
+``` bash
+$ jo component tabs.{js,css} menu -d
+```
 
 Wait for magic!
 
@@ -87,7 +91,9 @@ src
 
 ### Help
 
-> jo -h
+``` bash
+$ jo -h
+```
 
 ```
 Usage: jo [options] [command]
@@ -101,7 +107,9 @@ Commands:
   help [command]       display help for command
 ```
 
-> jo component -h
+``` bash
+$ jo component -h
+```
 
 ```
 Usage: jo component [options]
