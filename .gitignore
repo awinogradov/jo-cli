@@ -1,0 +1,42 @@
+##### OS FILES
+.DS_Store
+.history
+
+##### Editors
+.*.swp
+.idea
+.vscode
+.vs
+*.iml
+*.sublime-project
+*.sublime-workspace
+
+##### BUILD
+node_modules/
+npm-debug.log
+*.log
+logs/
+dist/
+*buildinfo
+!packages/serp-header/build/
+!packages/taburet/src/build/
+packages/**/lib/
+!packages/generator-project-stub/**/lib/
+!packages/slint/lib/
+version.txt
+geodata.bin.tmp
+sd_cache/
+/.pnp
+.pnp.js
+
+##### ENVIRONMENT
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+##### TESTS
+.nyc_output/
+__reports/
+/coverage

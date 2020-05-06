@@ -1,0 +1,21 @@
+{
+    "*.{jsx?,tsx?}": [
+        "prettier --write",
+        "npm run lint -- --fix",
+        "npm run lint",
+        "git add"
+    ],
+    '*.{css,scss}': [
+        "stylelint",
+        "git add"
+    ],
+    "*.md": [
+        "prettier --write --parser markdown",
+        "git add"
+    ],
+    "*.json": [
+        "prettier --write --parser json",
+        "node",
+        "git add"
+    ]
+}
