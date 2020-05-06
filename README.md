@@ -1,10 +1,10 @@
 # Jo
 
-`Jo` is the simple and scalable code generator that works. Builed for developers by developers with ❤️.
+`Jo` is a simple and scalable code generator that works. Built for developers by developers with ❤️.
 
 ### Features
 
-- 🏗️ JavaScript as template language — do what you want with any other packages in your templates;
+- 🏗️ JavaScript as a template language — do what you want with any other packages in your templates;
 - 🎨 Hooks for any state — format, validate, whatever with your templates;
 - 🚀 Support templates as npm-package — share tmeplates between teams and projects;
 
@@ -47,7 +47,7 @@ module.exports = {
 
 ### Template
 
-Add template files with name to extension mathcing.
+Add template files with name to extension matching.
 
 ``` js
 // .templates/component/js.js
