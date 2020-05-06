@@ -20,6 +20,10 @@
   ],
   "author": "Anton Vinogradov <winogradovaa@gmail.com>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:awinogradov/jo-cli.git"
+  },
   "devDependencies": {
     "@commitlint/cli": "8.3.5",
     "@commitlint/config-conventional": "8.3.4",
@@ -55,6 +59,7 @@
   "files": [
     "bin",
     "dist",
-    "src"
+    "src",
+    "README.md"
   ]
 }
