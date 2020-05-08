@@ -6,7 +6,7 @@
 
 - 🏗️ JavaScript as a template language — do what you want with any other packages in your templates;
 - 🎨 Hooks for any state — format, validate, whatever with your templates;
-- 🚀 Support templates as npm-package — share tmeplates between teams and projects;
+- 🚀 Support templates as npm-package — share templates between teams and projects;
 - 🎩 Support [brace expansion](https://www.gnu.org/software/bash/manual/html_node/Brace-Expansion.html) as known from sh/bash.
 
 ## Usage
@@ -33,15 +33,16 @@ module.exports = {
             type: 'boolean',
             short: 'd',
             description: 'create component as directory',
-        }
+        },
+        module: {
+            type: 'string',
+            short: 'm',
+            description: 'Sub module',
+            parse: pascalCase,
+        },
     },
     hooks: {
-        preFileName({ payload: filename }) {
-            return pascalCase(filename);
-        },
-        prePath({ options, payload: filename }) {
-            return options.directory ? `./src/components/${filename}` : './src/components';
-        }
+        preFileName: (_, filename) => pascalCase(filename),
     },
 };
 ```
@@ -52,15 +53,11 @@ Add template files with name to extension matching.
 
 __.templates/component/js.js__
 ``` js
-module.exports.template = ({ directory }, fileName) => {
-    const content = directory ? 'in direcotory' : 'one file';
+module.exports.template = ({ directory }, fileName) => (
+    `import React from 'react';
 
-    return (
-        `import React from 'react';
-
-        export const ${fileName} = props => <div>${content}</div>;`
-    );
-}
+    export const ${fileName} = props => <div>${directory ? 'in direcotory' : 'one file'}</div>;`
+);
 ```
 
 __.templates/component/css.js__
@@ -74,7 +71,7 @@ module.exports.template = (_, fileName) => `.${fileName} {}`;
 $ jo component tabs.{js,css} menu -d
 ```
 
-Wait for magic!
+Wait for magic! 🐰
 
 ```
 src
@@ -132,4 +129,30 @@ module.exports = {
     ],
     logMode: 'silent', // verbose, short — verbose by default
 };
+```
+
+### Customize path for any template
+
+__.templates/component/test.js.js__
+``` js
+module.exports.path = ({ options, path, extension }, fileName) =>
+    options.directory ? `${path}/${fileName}.test/${options.module}.${extension}` : `${path}/${fileName}.${extension}`;
+
+module.exports.template = (_, fileName) => `
+test('${fileName}');
+`;
+```
+
+``` bash
+$ jo component menu.test.js -d -m base
+```
+
+Wait for magic! 🐰
+
+```
+src
+└── components
+    └── Menu
+        └── Menu.test
+            └── Base.test.js
 ```
