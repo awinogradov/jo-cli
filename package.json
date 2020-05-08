@@ -1,6 +1,6 @@
 {
   "name": "jo-cli",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Command line code generator that works.",
   "bin": {
     "jo": "bin/jo.js"
