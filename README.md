@@ -7,6 +7,7 @@
 - 🏗️ JavaScript as a template language — do what you want with any other packages in your templates;
 - 🎨 Hooks for any state — format, validate, whatever with your templates;
 - 🚀 Support templates as npm-package — share tmeplates between teams and projects;
+- 🎩 Support [brace expansion](https://www.gnu.org/software/bash/manual/html_node/Brace-Expansion.html) as known from sh/bash.
 
 ## Usage
 
@@ -18,14 +19,14 @@ $ npm i -D jo-cli
 
 Add to `.templates` first templates via folder `component` and populate command config.
 
+__.templates/component/.joconfig.js__
 ``` js
-// .templates/component/.joconfig.js
-
 const { pascalCase } = require('change-case');
 
 module.exports = {
-    default: 'js',
     title: 'React Component',
+    default: 'js',
+    path: ({ options }, filename) => (options.directory ? `./src/components/${filename}` : './src/components'),
     description: 'Create React component in different technologies.',
     options: {
         directory: {
@@ -35,7 +36,7 @@ module.exports = {
         }
     },
     hooks: {
-        preFilename({ payload: filename }) {
+        preFileName({ payload: filename }) {
             return pascalCase(filename);
         },
         prePath({ options, payload: filename }) {
@@ -49,9 +50,8 @@ module.exports = {
 
 Add template files with name to extension matching.
 
+__.templates/component/js.js__
 ``` js
-// .templates/component/js.js
-
 module.exports.template = ({ directory }, fileName) => {
     const content = directory ? 'in direcotory' : 'one file';
 
@@ -63,9 +63,8 @@ module.exports.template = ({ directory }, fileName) => {
 }
 ```
 
+__.templates/component/css.js__
 ``` js
-// .templates/component/css.js
-
 module.exports.template = (_, fileName) => `.${fileName} {}`;
 ```
 
@@ -122,7 +121,7 @@ Options:
   -h, --help       display help for command
 ```
 
-### Configure
+## Configure
 
 Add `.joconfig.js` to your project root directory.
 

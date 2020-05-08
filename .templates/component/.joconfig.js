@@ -1,8 +1,9 @@
 const { pascalCase } = require('change-case');
 
 module.exports = {
-    default: 'js',
     title: 'React Component',
+    default: 'js',
+    path: ({ options }, filename) => (options.directory ? `./src/components/${filename}` : './src/components'),
     description: 'Create React component in different technologies.',
     options: {
         directory: {
@@ -10,17 +11,14 @@ module.exports = {
             short: 'd',
             description: 'Create as directory',
         },
-        fc: {
-            type: 'boolean',
-            description: 'Functional Component',
+        module: {
+            type: 'string',
+            short: 'm',
+            description: 'Sub module',
+            parse: pascalCase,
         },
     },
     hooks: {
-        preFilename({ payload: filename }) {
-            return pascalCase(filename);
-        },
-        prePath({ options, payload: filename }) {
-            return options.directory ? `./src/components/${filename}` : './src/components';
-        }
+        preFileName: (_, filename) => pascalCase(filename),
     },
 };
