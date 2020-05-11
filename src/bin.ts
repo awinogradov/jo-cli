@@ -61,7 +61,7 @@ const globalOptions: CommandOptions = {
     force: {
         type: 'boolean',
         short: 'f',
-        description: 'Override existing files',
+        description: 'override existing files',
     },
 };
 const program = new Command();
@@ -75,6 +75,11 @@ if (existsSync(`${configPath}.js`) || existsSync(`${configPath}.json`)) {
         ...cliConfig,
         ...userCliConfig,
     };
+
+    cliConfig.templates = [...cliConfig.templates.map(nodeModulePath => {
+        const possibleDir = join(process.cwd(), 'node_modules', nodeModulePath, defaultTemplatesDirectory);
+        return existsSync(possibleDir) ? possibleDir : join(process.cwd(), nodeModulePath);
+    }), join(process.cwd(), defaultTemplatesDirectory)];
 }
 
 const createCommandOption = (optionName: string, optionConf: CommandOption) => {
@@ -92,166 +97,171 @@ const createCommandOption = (optionName: string, optionConf: CommandOption) => {
     return args;
 };
 
-const walker = walk(cliConfig.templates[0]);
+const walkers: Promise<void>[] = [];
 
-walker.on('directory', async function (root: any, stat: WalkStats, next: WalkNext) {
-    const log: string[] = [];
-    const commandName = stat.name;
-    const commantConfigPath = join(process.cwd(), root, commandName, commandConfigName);
-    const logIf = (predicate: boolean, ...logPayload: string[]) => {
-        if (predicate) log.push(...logPayload);
-    };
+for (const templatesRoot of cliConfig.templates) {
+    const walker = walk(templatesRoot);
+    walkers.push(new Promise((resolve) => walker.on('end', resolve)));
 
-    if (!existsSync(`${commantConfigPath}.js`) && !existsSync(`${commantConfigPath}.json`)) {
-        throw new Error(`No config provided for command ${chalk.bold(commandName)}`);
-    }
+    walker.on('directory', async function (root: any, stat: WalkStats, next: WalkNext) {
+        const log: string[] = [];
+        const commandName = stat.name;
+        const commantConfigPath = join(root, commandName, commandConfigName);
+        const logIf = (predicate: boolean, ...logPayload: string[]) => {
+            if (predicate) log.push(...logPayload);
+        };
 
-    const commandConf: CommandConfig = require(commantConfigPath);
-    program.addCommand(
-        (() => {
-            const command = new Command(commandName);
+        if (!existsSync(`${commantConfigPath}.js`) && !existsSync(`${commantConfigPath}.json`)) {
+            throw new Error(`No config provided for command ${chalk.bold(commandName)}`);
+        }
 
-            if (commandConf.description) {
-                command.description(commandConf.description);
-            }
+        const commandConf: CommandConfig = require(commantConfigPath);
+        program.addCommand(
+            (() => {
+                const command = new Command(commandName);
 
-            const availableOptions = commandConf.options ? { ...globalOptions, ...commandConf.options } : globalOptions;
+                if (commandConf.description) {
+                    command.description(commandConf.description);
+                }
 
-            for (const [optionName, optionConf] of Object.entries(availableOptions)) {
-                // @ts-ignore unresolvable js magic
-                command.option(...createCommandOption(optionName, optionConf));
-            }
+                const availableOptions = commandConf.options ? { ...globalOptions, ...commandConf.options } : globalOptions;
 
-            command.action(function (calledOptions: CliFlags, value?: string[]) {
-                if (!value) return;
+                for (const [optionName, optionConf] of Object.entries(availableOptions)) {
+                    // @ts-ignore unresolvable js magic
+                    command.option(...createCommandOption(optionName, optionConf));
+                }
 
-                logIf(cliConfig.logMode !== 'silent', '\n');
+                command.action(function (calledOptions: CliFlags, value?: string[]) {
+                    if (!value) return;
 
-                logIf(
-                    cliConfig.logMode === 'verbose',
-                    `Command: ${chalk.bold(commandName)}`,
-                    `Templates: ${chalk.bold(commandConf.title)}`,
-                    '\n',
-                );
+                    logIf(cliConfig.logMode !== 'silent', '\n');
 
-                let normalizedOptions: CliFlags;
-
-                if (Object.keys(calledOptions).length) {
                     logIf(
                         cliConfig.logMode === 'verbose',
-                        'Options:',
-                        ...Object.keys(calledOptions)
-                            .map((optionName) => {
-                                let optionConf;
-
-                                if (commandConf.options && commandConf.options[optionName]) {
-                                    optionConf = commandConf.options[optionName];
-                                }
-
-                                if (globalOptions[optionName]) {
-                                    optionConf = globalOptions[optionName];
-                                }
-
-                                return optionConf ? `    --${optionName} — ${optionConf.description}` : '';
-                            })
-                            .filter(Boolean),
+                        `Command: ${chalk.bold(commandName)}`,
+                        `Templates: ${chalk.bold(commandConf.title)}`,
                         '\n',
                     );
 
-                    const availableOptions = commandConf.options
-                        ? { ...globalOptions, ...commandConf.options }
-                        : globalOptions;
+                    let normalizedOptions: CliFlags;
 
-                    normalizedOptions = Object.keys(availableOptions).reduce<CliFlags>((options, optionName) => {
-                        const optionConf = availableOptions[optionName];
+                    if (Object.keys(calledOptions).length) {
+                        logIf(
+                            cliConfig.logMode === 'verbose',
+                            'Options:',
+                            ...Object.keys(calledOptions)
+                                .map((optionName) => {
+                                    let optionConf;
 
-                        options[optionName] =
-                            optionConf.parse && calledOptions[optionName]
-                                ? optionConf.parse(calledOptions[optionName])
-                                : calledOptions[optionName];
+                                    if (commandConf.options && commandConf.options[optionName]) {
+                                        optionConf = commandConf.options[optionName];
+                                    }
 
-                        return options;
-                    }, {});
-                }
+                                    if (globalOptions[optionName]) {
+                                        optionConf = globalOptions[optionName];
+                                    }
 
-                value.forEach((item) => {
-                    braceExpansion(item).forEach(async (expansion) => {
-                        const parts = expansion.split('.');
-                        const fileName = parts.shift();
-                        const extension = parts.join('.');
-
-                        if (!fileName) {
-                            throw new Error(`No filename provided`);
-                        }
-
-                        const normalizedFilename = commandConf.hooks?.preFileName
-                            ? commandConf.hooks.preFileName({ options: normalizedOptions, extension }, fileName)
-                            : fileName;
-                        const normalizedExtension = extension || commandConf.default;
-                        const commandTemplatePath = join(process.cwd(), root, commandName, `${normalizedExtension}.js`);
-
-                        if (!existsSync(commandTemplatePath)) {
-                            throw new Error(`No templates provided for extension ${chalk.bold(`.${extension}`)}`);
-                        }
-
-                        const commandTemplate: CommandTemplate = require(commandTemplatePath);
-                        const basePath =
-                            typeof commandConf.path === 'function'
-                                ? commandConf.path({ options: normalizedOptions, extension }, normalizedFilename)
-                                : commandConf.path;
-                        const createPath = join(
-                            process.cwd(),
-                            commandTemplate.path
-                                ? commandTemplate.path(
-                                      { options: normalizedOptions, path: basePath, extension },
-                                      normalizedFilename,
-                                  )
-                                : basePath,
-                            commandTemplate.path ? '' : `${normalizedFilename}.${normalizedExtension}`,
+                                    return optionConf ? `    --${optionName} — ${optionConf.description}` : '';
+                                })
+                                .filter(Boolean),
+                            '\n',
                         );
-                        const originalFileContent = commandTemplate.template(
-                            { options: normalizedOptions, path: createPath, extension },
-                            normalizedFilename,
-                        );
-                        const fileContent = commandConf.hooks?.preFileSave
-                            ? commandConf.hooks?.preFileSave(
-                                  {
-                                      path: createPath,
-                                      options: normalizedOptions,
-                                      extension,
-                                  },
-                                  originalFileContent,
-                              )
-                            : originalFileContent;
-                        const logPath = `./${relative(process.cwd(), createPath)}`;
 
-                        if (existsSync(createPath)) {
-                            if (calledOptions.force) {
-                                logIf(cliConfig.logMode !== 'silent', `${chalk.yellow('o')}: ${logPath}`);
+                        const availableOptions = commandConf.options
+                            ? { ...globalOptions, ...commandConf.options }
+                            : globalOptions;
+
+                        normalizedOptions = Object.keys(availableOptions).reduce<CliFlags>((options, optionName) => {
+                            const optionConf = availableOptions[optionName];
+
+                            options[optionName] =
+                                optionConf.parse && calledOptions[optionName]
+                                    ? optionConf.parse(calledOptions[optionName])
+                                    : calledOptions[optionName];
+
+                            return options;
+                        }, {});
+                    }
+
+                    value.forEach((item) => {
+                        braceExpansion(item).forEach(async (expansion) => {
+                            const parts = expansion.split('.');
+                            const fileName = parts.shift();
+                            const extension = parts.join('.');
+
+                            if (!fileName) {
+                                throw new Error(`No filename provided`);
+                            }
+
+                            const normalizedFilename = commandConf.hooks?.preFileName
+                                ? commandConf.hooks.preFileName({ options: normalizedOptions, extension }, fileName)
+                                : fileName;
+                            const normalizedExtension = extension || commandConf.default;
+                            const commandTemplatePath = join(root, commandName, `${normalizedExtension}.js`);
+
+                            if (!existsSync(commandTemplatePath)) {
+                                throw new Error(`No templates provided for extension ${chalk.bold(`.${extension}`)}`);
+                            }
+
+                            const commandTemplate: CommandTemplate = require(commandTemplatePath);
+                            const basePath =
+                                typeof commandConf.path === 'function'
+                                    ? commandConf.path({ options: normalizedOptions, extension }, normalizedFilename)
+                                    : commandConf.path;
+                            const createPath = join(
+                                process.cwd(),
+                                commandTemplate.path
+                                    ? commandTemplate.path(
+                                        { options: normalizedOptions, path: basePath, extension },
+                                        normalizedFilename,
+                                    )
+                                    : basePath,
+                                commandTemplate.path ? '' : `${normalizedFilename}.${normalizedExtension}`,
+                            );
+                            const originalFileContent = commandTemplate.template(
+                                { options: normalizedOptions, path: createPath, extension },
+                                normalizedFilename,
+                            );
+                            const fileContent = commandConf.hooks?.preFileSave
+                                ? commandConf.hooks?.preFileSave(
+                                    {
+                                        path: createPath,
+                                        options: normalizedOptions,
+                                        extension,
+                                    },
+                                    originalFileContent,
+                                )
+                                : originalFileContent;
+                            const logPath = `./${relative(process.cwd(), createPath)}`;
+
+                            if (existsSync(createPath)) {
+                                if (calledOptions.force) {
+                                    logIf(cliConfig.logMode !== 'silent', `${chalk.yellow('o')}: ${logPath}`);
+
+                                    await outputFile(createPath, fileContent).catch((err) => console.error(err));
+                                } else {
+                                    logIf(
+                                        cliConfig.logMode !== 'silent',
+                                        `${chalk.red('s')}: ${logPath} — ${chalk.grey('already exists')}`,
+                                    );
+                                }
+                            } else {
+                                logIf(cliConfig.logMode !== 'silent', `${chalk.green('c')}: ${logPath}`);
 
                                 await outputFile(createPath, fileContent).catch((err) => console.error(err));
-                            } else {
-                                logIf(
-                                    cliConfig.logMode !== 'silent',
-                                    `${chalk.red('s')}: ${logPath} — ${chalk.grey('already exists')}`,
-                                );
                             }
-                        } else {
-                            logIf(cliConfig.logMode !== 'silent', `${chalk.green('c')}: ${logPath}`);
-
-                            await outputFile(createPath, fileContent).catch((err) => console.error(err));
-                        }
+                        });
                     });
+
+                    console.log(log.join('\n'));
                 });
 
-                console.log(log.join('\n'));
-            });
+                return command;
+            })(),
+        );
 
-            return command;
-        })(),
-    );
+        next();
+    });
+}
 
-    next();
-});
-
-walker.on('end', () => program.parse(process.argv));
+Promise.all(walkers).then(() => program.parse(process.argv));

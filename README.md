@@ -4,14 +4,14 @@
 
 ### Features
 
-- 🏗️ JavaScript as a template language — do what you want with any other packages in your templates;
-- 🎨 Hooks for any state — format, validate, whatever with your templates;
-- 🚀 Support templates as npm-package — share templates between teams and projects;
-- 🎩 Support [brace expansion](https://www.gnu.org/software/bash/manual/html_node/Brace-Expansion.html) as known from sh/bash.
+-   🏗️ JavaScript as a template language — do what you want with any other packages in your templates;
+-   🎨 Hooks for any state — format, validate, whatever with your templates;
+-   🚀 Support templates as npm-package — share templates between teams and projects;
+-   🎩 Support [brace expansion](https://www.gnu.org/software/bash/manual/html_node/Brace-Expansion.html) as known from sh/bash.
 
 ## Usage
 
-``` bash
+```bash
 $ npm i -D jo-cli
 ```
 
@@ -19,8 +19,9 @@ $ npm i -D jo-cli
 
 Add to `.templates` first templates via folder `component` and populate command config.
 
-__.templates/component/.joconfig.js__
-``` js
+**.templates/component/.joconfig.js**
+
+```js
 const { pascalCase } = require('change-case');
 
 module.exports = {
@@ -51,23 +52,24 @@ module.exports = {
 
 Add template files with name to extension matching.
 
-__.templates/component/js.js__
-``` js
-module.exports.template = ({ directory }, fileName) => (
+**.templates/component/js.js**
+
+```js
+module.exports.template = ({ directory }, fileName) =>
     `import React from 'react';
 
-    export const ${fileName} = props => <div>${directory ? 'in direcotory' : 'one file'}</div>;`
-);
+    export const ${fileName} = props => <div>${directory ? 'in direcotory' : 'one file'}</div>;`;
 ```
 
-__.templates/component/css.js__
-``` js
+**.templates/component/css.js**
+
+```js
 module.exports.template = (_, fileName) => `.${fileName} {}`;
 ```
 
 ### Run it!
 
-``` bash
+```bash
 $ jo component tabs.{js,css} menu -d
 ```
 
@@ -87,7 +89,7 @@ src
 
 ### Help
 
-``` bash
+```bash
 $ jo -h
 ```
 
@@ -103,7 +105,7 @@ Commands:
   help [command]       display help for command
 ```
 
-``` bash
+```bash
 $ jo component -h
 ```
 
@@ -113,7 +115,7 @@ Usage: jo component [options]
 Create React component in different technologies.
 
 Options:
-  -f, --force      Override existing files
+  -f, --force      override existing files
   -d, --directory  create component as directory
   -h, --help       display help for command
 ```
@@ -122,10 +124,13 @@ Options:
 
 Add `.joconfig.js` to your project root directory.
 
-``` js
+```js
 module.exports = {
     templates: [
-      `path/to/your/templates`, // .templates by default
+        'react-jo-templates', // name of package with templates
+        'bem-jo-templates',
+        'blog-jo-templates',
+        'path/to/your/templates', // .templates by default
     ],
     logMode: 'silent', // verbose, short — verbose by default
 };
@@ -133,8 +138,9 @@ module.exports = {
 
 ### Customize path for any template
 
-__.templates/component/test.js.js__
-``` js
+**.templates/component/test.js.js**
+
+```js
 module.exports.path = ({ options, path, extension }, fileName) =>
     options.directory ? `${path}/${fileName}.test/${options.module}.${extension}` : `${path}/${fileName}.${extension}`;
 
@@ -143,11 +149,9 @@ test('${fileName}');
 `;
 ```
 
-``` bash
+```bash
 $ jo component menu.test.js -d -m base
 ```
-
-Wait for magic! 🐰
 
 ```
 src
@@ -155,4 +159,36 @@ src
     └── Menu
         └── Menu.test
             └── Base.test.js
+```
+
+## Hooks
+
+### preFileName(meta, filname)
+
+Calls before the filename will be created. Use it to customize naming with your team guides.
+
+```js
+const { pascalCase } = require('change-case');
+
+module.exports = {
+    //...
+    hooks: {
+        preFileName: (_, filename) => pascalCase(filename),
+    },
+};
+```
+
+### preFileSave(meta, filname)
+
+Calls before the file content will be saved. Use it to format or any other magic.
+
+```js
+const prettier = require('prettier');
+
+module.exports = {
+    //...
+    hooks: {
+        preFileSave: (_, content) => prettier.format(content),
+    },
+};
 ```
