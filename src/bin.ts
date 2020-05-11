@@ -55,7 +55,7 @@ export interface CommandTemplate {
 const pkg = require('../package.json');
 const commandConfigName = '.joconfig';
 const configPath = join(process.cwd(), commandConfigName);
-const defaultTemplatesDirectory = '.templates';
+const defaultTemplatesDirectory = 'templates';
 let cliConfig: CliConfig = {
     templates: [defaultTemplatesDirectory],
     logMode: 'verbose',
