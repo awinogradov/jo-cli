@@ -17,6 +17,7 @@ interface MutableStringOptions {
     path?: string;
     extension: string;
     options: CliFlags;
+    config: CommandConfig;
 }
 
 type MutableStringSignature = (options: MutableStringOptions, value: string) => string;
@@ -81,10 +82,13 @@ if (isRequirable(configPath)) {
         ...userCliConfig,
     };
 
-    cliConfig.templates = [...cliConfig.templates.map(nodeModulePath => {
-        const possibleDir = templateModulePath(nodeModulePath);
-        return existsSync(possibleDir) ? possibleDir : join(process.cwd(), nodeModulePath);
-    }), join(process.cwd(), defaultTemplatesDirectory)];
+    cliConfig.templates = [
+        ...cliConfig.templates.map((nodeModulePath) => {
+            const possibleDir = templateModulePath(nodeModulePath);
+            return existsSync(possibleDir) ? possibleDir : join(process.cwd(), nodeModulePath);
+        }),
+        join(process.cwd(), defaultTemplatesDirectory),
+    ];
 }
 
 const createCommandOption = (optionName: string, optionConf: CommandOption) => {
@@ -149,7 +153,9 @@ for (const templatesRoot of cliConfig.templates) {
                     command.description(mergedCommandConfig.description);
                 }
 
-                const availableOptions = mergedCommandConfig.options ? { ...globalOptions, ...mergedCommandConfig.options } : globalOptions;
+                const availableOptions = mergedCommandConfig.options
+                    ? { ...globalOptions, ...mergedCommandConfig.options }
+                    : globalOptions;
 
                 for (const [optionName, optionConf] of Object.entries(availableOptions)) {
                     // @ts-ignore unresolvable js magic
@@ -219,10 +225,15 @@ for (const templatesRoot of cliConfig.templates) {
                             }
 
                             const normalizedFilename = mergedCommandConfig.hooks?.preFileName
-                                ? mergedCommandConfig.hooks.preFileName({ options: normalizedOptions, extension }, fileName)
+                                ? mergedCommandConfig.hooks.preFileName(
+                                      { options: normalizedOptions, config: mergedCommandConfig, extension },
+                                      fileName,
+                                  )
                                 : fileName;
                             const normalizedExtension = extension || mergedCommandConfig.default;
-                            const commandTemplatePaths = templatesRoots.map(r => join(r, `${normalizedExtension}.js`));
+                            const commandTemplatePaths = templatesRoots.map((r) =>
+                                join(r, `${normalizedExtension}.js`),
+                            );
 
                             let commandTemplatePath: string | null = null;
                             for (const templatePath of commandTemplatePaths) {
@@ -238,31 +249,45 @@ for (const templatesRoot of cliConfig.templates) {
                             const commandTemplate: CommandTemplate = require(commandTemplatePath);
                             const basePath =
                                 typeof mergedCommandConfig.path === 'function'
-                                    ? mergedCommandConfig.path({ options: normalizedOptions, extension }, normalizedFilename)
+                                    ? mergedCommandConfig.path(
+                                          { options: normalizedOptions, config: mergedCommandConfig, extension },
+                                          normalizedFilename,
+                                      )
                                     : mergedCommandConfig.path;
                             const createPath = join(
                                 process.cwd(),
                                 commandTemplate.path
                                     ? commandTemplate.path(
-                                        { options: normalizedOptions, path: basePath, extension },
-                                        normalizedFilename,
-                                    )
+                                          {
+                                              options: normalizedOptions,
+                                              path: basePath,
+                                              extension,
+                                              config: mergedCommandConfig,
+                                          },
+                                          normalizedFilename,
+                                      )
                                     : basePath,
                                 commandTemplate.path ? '' : `${normalizedFilename}.${normalizedExtension}`,
                             );
                             const originalFileContent = commandTemplate.template(
-                                { options: normalizedOptions, path: createPath, extension },
+                                {
+                                    options: normalizedOptions,
+                                    path: createPath,
+                                    config: mergedCommandConfig,
+                                    extension,
+                                },
                                 normalizedFilename,
                             );
                             const fileContent = mergedCommandConfig.hooks?.preFileSave
                                 ? mergedCommandConfig.hooks?.preFileSave(
-                                    {
-                                        path: createPath,
-                                        options: normalizedOptions,
-                                        extension,
-                                    },
-                                    originalFileContent,
-                                )
+                                      {
+                                          path: createPath,
+                                          options: normalizedOptions,
+                                          config: mergedCommandConfig,
+                                          extension,
+                                      },
+                                      originalFileContent,
+                                  )
                                 : originalFileContent;
                             const logPath = `./${relative(process.cwd(), createPath)}`;
 
