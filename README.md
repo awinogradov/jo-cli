@@ -7,7 +7,8 @@
 -   🏗️ JavaScript as a template language — do what you want with any other packages in your templates;
 -   🎨 Hooks for any state — format, validate, whatever with your templates;
 -   🚀 Support templates as npm-package — share templates between teams and projects;
--   🎩 Support [brace expansion](https://www.gnu.org/software/bash/manual/html_node/Brace-Expansion.html) as known from sh/bash.
+-   🎩 Support [brace expansion](https://www.gnu.org/software/bash/manual/html_node/Brace-Expansion.html) as known from sh/bash;
+-   💪 Command templates etending and overriding.
 
 ## Usage
 
@@ -17,9 +18,9 @@ $ npm i -D jo-cli
 
 ### Command config
 
-Add to `.templates` first templates via folder `component` and populate command config.
+Add to `templates` directory first templates via folder `component` and populate command config.
 
-**.templates/component/.joconfig.js**
+**templates/component/.joconfig.js**
 
 ```js
 const { pascalCase } = require('change-case');
@@ -52,7 +53,7 @@ module.exports = {
 
 Add template files with name to extension matching.
 
-**.templates/component/js.js**
+**templates/component/js.js**
 
 ```js
 module.exports.template = ({ directory }, fileName) =>
@@ -61,7 +62,7 @@ module.exports.template = ({ directory }, fileName) =>
     export const ${fileName} = props => <div>${directory ? 'in direcotory' : 'one file'}</div>;`;
 ```
 
-**.templates/component/css.js**
+**templates/component/css.js**
 
 ```js
 module.exports.template = (_, fileName) => `.${fileName} {}`;
@@ -130,7 +131,7 @@ module.exports = {
         'react-jo-templates', // name of package with templates
         'bem-jo-templates',
         'blog-jo-templates',
-        'path/to/your/templates', // .templates by default
+        'path/to/your/templates', // templates by default
     ],
     logMode: 'silent', // verbose, short — verbose by default
 };
@@ -138,7 +139,7 @@ module.exports = {
 
 ### Customize path for any template
 
-**.templates/component/test.js.js**
+**templates/component/test.js.js**
 
 ```js
 module.exports.path = ({ options, path, extension }, fileName) =>
@@ -190,5 +191,16 @@ module.exports = {
     hooks: {
         preFileSave: (_, content) => prettier.format(content),
     },
+};
+```
+
+## Extends
+
+You can base your command on any other. Override command config, add or override templates for any file exetensions.
+
+```js
+module.exports = {
+    extends: 'react-jo-templates/templates/react',
+    description: 'Styled React components',
 };
 ```

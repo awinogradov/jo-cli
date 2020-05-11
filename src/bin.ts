@@ -4,6 +4,7 @@ import { Command } from 'commander';
 import { walk, WalkStats, WalkNext } from 'walk';
 import braceExpansion from 'brace-expansion';
 import chalk from 'chalk';
+import deepmerge from 'deepmerge';
 
 interface CliConfig {
     templates: string[];
@@ -39,6 +40,7 @@ export interface CommandConfig {
     title: string;
     default: string;
     path: string | MutableStringSignature;
+    extends?: string;
     description?: string;
     options?: CommandOptions;
     hooks?: CommandHooks;
@@ -68,7 +70,10 @@ const program = new Command();
 
 program.version(pkg.version);
 
-if (existsSync(`${configPath}.js`) || existsSync(`${configPath}.json`)) {
+const isRequirable = (p: string) => existsSync(`${p}.js`) || existsSync(`${p}.json`);
+const templateModulePath = (p: string) => join(process.cwd(), 'node_modules', p);
+
+if (isRequirable(configPath)) {
     const userCliConfig = require(configPath);
 
     cliConfig = {
@@ -77,7 +82,7 @@ if (existsSync(`${configPath}.js`) || existsSync(`${configPath}.json`)) {
     };
 
     cliConfig.templates = [...cliConfig.templates.map(nodeModulePath => {
-        const possibleDir = join(process.cwd(), 'node_modules', nodeModulePath, defaultTemplatesDirectory);
+        const possibleDir = templateModulePath(nodeModulePath);
         return existsSync(possibleDir) ? possibleDir : join(process.cwd(), nodeModulePath);
     }), join(process.cwd(), defaultTemplatesDirectory)];
 }
@@ -106,25 +111,45 @@ for (const templatesRoot of cliConfig.templates) {
     walker.on('directory', async function (root: any, stat: WalkStats, next: WalkNext) {
         const log: string[] = [];
         const commandName = stat.name;
-        const commantConfigPath = join(root, commandName, commandConfigName);
+        const commandConfigPath = join(root, commandName, commandConfigName);
         const logIf = (predicate: boolean, ...logPayload: string[]) => {
             if (predicate) log.push(...logPayload);
         };
 
-        if (!existsSync(`${commantConfigPath}.js`) && !existsSync(`${commantConfigPath}.json`)) {
+        if (!isRequirable(commandConfigPath)) {
             throw new Error(`No config provided for command ${chalk.bold(commandName)}`);
         }
 
-        const commandConf: CommandConfig = require(commantConfigPath);
+        const commandConf: CommandConfig = require(commandConfigPath);
         program.addCommand(
             (() => {
                 const command = new Command(commandName);
+                const templatesRoots: string[] = [];
 
-                if (commandConf.description) {
-                    command.description(commandConf.description);
+                let baseCommandConf: Partial<CommandConfig> = {};
+
+                if (commandConf.extends) {
+                    const possibleModulesDir = templateModulePath(commandConf.extends);
+                    const possibleRelativeDir = join(root, commandName, commandConf.extends);
+
+                    if (existsSync(possibleModulesDir)) {
+                        templatesRoots.push(possibleModulesDir);
+                        baseCommandConf = require(join(possibleModulesDir, commandConfigName));
+                    } else if (existsSync(possibleRelativeDir)) {
+                        templatesRoots.push(possibleRelativeDir);
+                        baseCommandConf = require(join(possibleRelativeDir, commandConfigName));
+                    }
                 }
 
-                const availableOptions = commandConf.options ? { ...globalOptions, ...commandConf.options } : globalOptions;
+                templatesRoots.push(join(root, commandName));
+
+                const mergedCommandConfig = deepmerge(baseCommandConf, commandConf);
+
+                if (mergedCommandConfig.description) {
+                    command.description(mergedCommandConfig.description);
+                }
+
+                const availableOptions = mergedCommandConfig.options ? { ...globalOptions, ...mergedCommandConfig.options } : globalOptions;
 
                 for (const [optionName, optionConf] of Object.entries(availableOptions)) {
                     // @ts-ignore unresolvable js magic
@@ -139,7 +164,7 @@ for (const templatesRoot of cliConfig.templates) {
                     logIf(
                         cliConfig.logMode === 'verbose',
                         `Command: ${chalk.bold(commandName)}`,
-                        `Templates: ${chalk.bold(commandConf.title)}`,
+                        `Templates: ${chalk.bold(mergedCommandConfig.title)}`,
                         '\n',
                     );
 
@@ -153,8 +178,8 @@ for (const templatesRoot of cliConfig.templates) {
                                 .map((optionName) => {
                                     let optionConf;
 
-                                    if (commandConf.options && commandConf.options[optionName]) {
-                                        optionConf = commandConf.options[optionName];
+                                    if (mergedCommandConfig.options && mergedCommandConfig.options[optionName]) {
+                                        optionConf = mergedCommandConfig.options[optionName];
                                     }
 
                                     if (globalOptions[optionName]) {
@@ -167,8 +192,8 @@ for (const templatesRoot of cliConfig.templates) {
                             '\n',
                         );
 
-                        const availableOptions = commandConf.options
-                            ? { ...globalOptions, ...commandConf.options }
+                        const availableOptions = mergedCommandConfig.options
+                            ? { ...globalOptions, ...mergedCommandConfig.options }
                             : globalOptions;
 
                         normalizedOptions = Object.keys(availableOptions).reduce<CliFlags>((options, optionName) => {
@@ -193,21 +218,28 @@ for (const templatesRoot of cliConfig.templates) {
                                 throw new Error(`No filename provided`);
                             }
 
-                            const normalizedFilename = commandConf.hooks?.preFileName
-                                ? commandConf.hooks.preFileName({ options: normalizedOptions, extension }, fileName)
+                            const normalizedFilename = mergedCommandConfig.hooks?.preFileName
+                                ? mergedCommandConfig.hooks.preFileName({ options: normalizedOptions, extension }, fileName)
                                 : fileName;
-                            const normalizedExtension = extension || commandConf.default;
-                            const commandTemplatePath = join(root, commandName, `${normalizedExtension}.js`);
+                            const normalizedExtension = extension || mergedCommandConfig.default;
+                            const commandTemplatePaths = templatesRoots.map(r => join(r, `${normalizedExtension}.js`));
 
-                            if (!existsSync(commandTemplatePath)) {
+                            let commandTemplatePath: string | null = null;
+                            for (const templatePath of commandTemplatePaths) {
+                                if (existsSync(templatePath)) {
+                                    commandTemplatePath = templatePath;
+                                }
+                            }
+
+                            if (!commandTemplatePath) {
                                 throw new Error(`No templates provided for extension ${chalk.bold(`.${extension}`)}`);
                             }
 
                             const commandTemplate: CommandTemplate = require(commandTemplatePath);
                             const basePath =
-                                typeof commandConf.path === 'function'
-                                    ? commandConf.path({ options: normalizedOptions, extension }, normalizedFilename)
-                                    : commandConf.path;
+                                typeof mergedCommandConfig.path === 'function'
+                                    ? mergedCommandConfig.path({ options: normalizedOptions, extension }, normalizedFilename)
+                                    : mergedCommandConfig.path;
                             const createPath = join(
                                 process.cwd(),
                                 commandTemplate.path
@@ -222,8 +254,8 @@ for (const templatesRoot of cliConfig.templates) {
                                 { options: normalizedOptions, path: createPath, extension },
                                 normalizedFilename,
                             );
-                            const fileContent = commandConf.hooks?.preFileSave
-                                ? commandConf.hooks?.preFileSave(
+                            const fileContent = mergedCommandConfig.hooks?.preFileSave
+                                ? mergedCommandConfig.hooks?.preFileSave(
                                     {
                                         path: createPath,
                                         options: normalizedOptions,
