@@ -55,7 +55,7 @@
     "chalk": "4.0.0",
     "commander": "5.1.0",
     "deepmerge": "4.2.2",
-    "fs-extra": "9.0.0",
+    "fs-extra": "9.0.1",
     "walk": "2.3.14"
   },
   "files": [
