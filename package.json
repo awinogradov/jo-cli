@@ -52,7 +52,7 @@
   },
   "dependencies": {
     "brace-expansion": "1.1.11",
-    "chalk": "4.1.0",
+    "chalk": "4.1.1",
     "commander": "6.2.1",
     "deepmerge": "4.2.2",
     "fs-extra": "9.1.0",
