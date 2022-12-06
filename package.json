@@ -27,7 +27,7 @@
   },
   "devDependencies": {
     "@commitlint/cli": "9.1.2",
-    "@commitlint/config-conventional": "9.1.2",
+    "@commitlint/config-conventional": "17.3.0",
     "@types/brace-expansion": "1.1.0",
     "@types/chalk": "2.2.0",
     "@types/commander": "2.12.2",
