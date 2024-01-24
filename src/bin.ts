@@ -1,4 +1,4 @@
-import { join, relative } from 'path';
+import { join, relative, resolve } from 'path';
 import { existsSync, outputFile } from 'fs-extra';
 import { Command } from 'commander';
 import { walk, WalkStats, WalkNext } from 'walk';
@@ -124,7 +124,7 @@ for (const templatesRoot of cliConfig.templates) {
             throw new Error(`No config provided for command ${chalk.bold(commandName)}`);
         }
 
-        const commandConf: CommandConfig = require(commandConfigPath);
+        const commandConf: CommandConfig = require(resolve(process.cwd(), commandConfigPath));
         program.addCommand(
             (() => {
                 const command = new Command(commandName);
@@ -138,10 +138,10 @@ for (const templatesRoot of cliConfig.templates) {
 
                     if (existsSync(possibleModulesDir)) {
                         templatesRoots.push(possibleModulesDir);
-                        baseCommandConf = require(join(possibleModulesDir, commandConfigName));
+                        baseCommandConf = require(resolve(process.cwd(), join(possibleModulesDir, commandConfigName)));
                     } else if (existsSync(possibleRelativeDir)) {
                         templatesRoots.push(possibleRelativeDir);
-                        baseCommandConf = require(join(possibleRelativeDir, commandConfigName));
+                        baseCommandConf = require(resolve(process.cwd(), join(possibleRelativeDir, commandConfigName)));
                     }
                 }
 
