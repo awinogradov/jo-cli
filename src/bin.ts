@@ -246,7 +246,7 @@ for (const templatesRoot of cliConfig.templates) {
                                 throw new Error(`No templates provided for extension ${chalk.bold(`.${extension}`)}`);
                             }
 
-                            const commandTemplate: CommandTemplate = require(commandTemplatePath);
+                            const commandTemplate: CommandTemplate = require(resolve(process.cwd(), commandTemplatePath));
                             const basePath =
                                 typeof mergedCommandConfig.path === 'function'
                                     ? mergedCommandConfig.path(
